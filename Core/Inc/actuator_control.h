@@ -36,8 +36,8 @@ void actuator_update(ActuatorControl_t* actuator_control, uint32_t current_time)
 void actuator_start_homing(ActuatorControl_t* actuator_control);
 ActuatorState_t actuator_get_state(const ActuatorControl_t* actuator_control);
 uint8_t actuator_error(const ActuatorControl_t* actuator_control);
-void extend_actuator(ActuatorControl_t* actuator_control);
-void shrink_actuator(ActuatorControl_t* actuator_control);
-void stop_actuator(ActuatorControl_t* actuator_control);
+void actuator_extend(ActuatorControl_t* actuator_control);
+void actuator_shrink(ActuatorControl_t* actuator_control);
+void actuator_stop(ActuatorControl_t* actuator_control);
 
 #endif

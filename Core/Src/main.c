@@ -121,7 +121,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    current_time = HAL_GetTick();
+    uint32_t current_time = HAL_GetTick();
 
     actuator_update(&actuator, current_time);
 

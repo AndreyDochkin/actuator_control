@@ -25,43 +25,43 @@ void actuator_update(ActuatorControl_t* actuator_control, uint32_t current_time)
         case ACTUATOR_HOMING:
             // Initialize homing if not started
             if (actuator_control->homing_start_time == 0) {
-                actuator_control->homing_direction = -1;  // Start with shrinking to initial position
+                actuator_control->homing_direction = HOMING_DIR_SHRINK;  // Start with shrinking to initial position
                 actuator_shrink(actuator_control);
                 break;
             }
 
             // [0] Move to initial position (shrink)
-            if (actuator_control->homing_direction == -1) {
+            if (actuator_control->homing_direction == HOMING_DIR_SHRINK) {
                 if (button_is_pressed(&actuator_control->shrink_switch)) {
                     actuator_control->homing_start_time = current_time;  // Start timing from here
-                    actuator_control->homing_direction = 1;  // Switch to extending
+                    actuator_control->homing_direction = HOMING_DIR_EXTEND;  // Switch to extending
                     actuator_extend(actuator_control);
                 }
                 break;
             }
 
             // [1] Find first limit switch
-            if (actuator_control->homing_direction == 1) {
+            if (actuator_control->homing_direction == HOMING_DIR_EXTEND) {
                 if (button_is_pressed(&actuator_control->extend_switch)) {
                     actuator_control->extend_time = current_time - actuator_control->homing_start_time;
-                    actuator_control->homing_direction = -1;  // Switch to shrinking
+                    actuator_control->homing_direction = HOMING_DIR_SHRINK;  // Switch to shrinking
                     actuator_shrink(actuator_control);
                 }
                 break;
             }
 
             // [2] Find second limit switch
-            if (actuator_control->homing_direction == -1) {
+            if (actuator_control->homing_direction == HOMING_DIR_SHRINK) {
                 if (button_is_pressed(&actuator_control->shrink_switch)) {
                     actuator_control->shrink_time = current_time - actuator_control->homing_start_time - actuator_control->extend_time;
-                    actuator_control->homing_direction = 2;  // Move to middle
+                    actuator_control->homing_direction = HOMING_DIR_MIDDLE;  // Move to middle
                     actuator_extend(actuator_control);
                 }
                 break;
             }
 
             // [3] Move to middle position
-            if (actuator_control->homing_direction == 2) {
+            if (actuator_control->homing_direction == HOMING_DIR_MIDDLE) {
                 uint32_t move_time = actuator_control->extend_time / 2;
                 if (current_time - actuator_control->homing_start_time - actuator_control->extend_time - actuator_control->shrink_time >= move_time) {
                     actuator_stop(actuator_control);
@@ -96,7 +96,7 @@ void actuator_update(ActuatorControl_t* actuator_control, uint32_t current_time)
 void actuator_start_homing(ActuatorControl_t* actuator_control) {
     if (actuator_control->state == ACTUATOR_IDLE) {
         actuator_control->state = ACTUATOR_HOMING;
-        actuator_control->homing_direction = 0;
+        actuator_control->homing_direction = HOMING_DIR_NONE;
         actuator_control->homing_start_time = 0;
         actuator_control->extend_time = 0;
         actuator_control->shrink_time = 0;

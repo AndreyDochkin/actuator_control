@@ -44,6 +44,7 @@ Debug/
 *.pdb
 
 # Kernel Module Compile Results
+.settings/
 *.mod*
 *.cmd
 .tmp_versions/

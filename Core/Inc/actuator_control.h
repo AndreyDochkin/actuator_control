@@ -36,6 +36,15 @@ typedef struct
     Button shrink_switch;
 } ActuatorControl_t;
 
+// Homing direction commands
+typedef enum
+{
+    HOMING_DIR_NONE = 0,
+    HOMING_DIR_EXTEND,
+    HOMING_DIR_SHRINK,
+    HOMING_DIR_MIDDLE
+} HomingDirection_t;
+
 void actuator_init(ActuatorControl_t *actuator_control, const ActuatorConfig_t *config);
 void actuator_update(ActuatorControl_t *actuator_control, uint32_t current_time);
 void actuator_start_homing(ActuatorControl_t *actuator_control);

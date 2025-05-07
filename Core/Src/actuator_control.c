@@ -1,5 +1,6 @@
 #include "actuator_control.h"
 #include "main.h"
+#include "gpio.h"
 
 static void update_switches(ActuatorControl_t* actuator_control, uint32_t current_time);
 
@@ -8,39 +9,64 @@ void actuator_init(ActuatorControl_t* actuator_control, const ActuatorConfig_t* 
     actuator_control->state = ACTUATOR_IDLE;
     actuator_control->last_update_time = 0;
     actuator_control->homing_start_time = 0;
-    actuator_control->homing_duration = 0;
     actuator_control->homing_direction = 0;
+    actuator_control->extend_time = 0;
+    actuator_control->shrink_time = 0;
 
     button_init(&actuator_control->extend_switch, config->extend_active_level, config->debounce_time_ms);
     button_init(&actuator_control->shrink_switch, config->shrink_active_level, config->debounce_time_ms);
 }
 
 void actuator_update(ActuatorControl_t* actuator_control, uint32_t current_time) {
-    update_switches(actuator_control, current_time);
+    
+    update_switches(actuator_control, current_time); // Update switch states with debouncing
 
     switch (actuator_control->state) {
         case ACTUATOR_HOMING:
+            // Initialize homing if not started
             if (actuator_control->homing_start_time == 0) {
-                actuator_control->homing_start_time = current_time;
-                actuator_control->homing_direction = 1;
-                actuator_extend(actuator_control);
-            }
-            
-            if (actuator_control->homing_direction == 1 && 
-                button_is_pressed(&actuator_control->extend_switch)) {
-                actuator_control->homing_direction = -1;
+                actuator_control->homing_direction = -1;  // Start with shrinking to initial position
                 actuator_shrink(actuator_control);
+                break;
             }
-            
-            if (actuator_control->homing_direction == -1 && 
-                button_is_pressed(&actuator_control->shrink_switch)) {
-                actuator_stop(actuator_control);
-                actuator_control->state = ACTUATOR_IDLE;
+
+            // [0] Move to initial position (shrink)
+            if (actuator_control->homing_direction == -1) {
+                if (button_is_pressed(&actuator_control->shrink_switch)) {
+                    actuator_control->homing_start_time = current_time;  // Start timing from here
+                    actuator_control->homing_direction = 1;  // Switch to extending
+                    actuator_extend(actuator_control);
+                }
+                break;
             }
-            
-            if (current_time - actuator_control->homing_start_time > actuator_control->config.homing_timeout_ms) {
-                actuator_stop(actuator_control);
-                actuator_control->state = ACTUATOR_ERROR;
+
+            // [1] Find first limit switch
+            if (actuator_control->homing_direction == 1) {
+                if (button_is_pressed(&actuator_control->extend_switch)) {
+                    actuator_control->extend_time = current_time - actuator_control->homing_start_time;
+                    actuator_control->homing_direction = -1;  // Switch to shrinking
+                    actuator_shrink(actuator_control);
+                }
+                break;
+            }
+
+            // [2] Find second limit switch
+            if (actuator_control->homing_direction == -1) {
+                if (button_is_pressed(&actuator_control->shrink_switch)) {
+                    actuator_control->shrink_time = current_time - actuator_control->homing_start_time - actuator_control->extend_time;
+                    actuator_control->homing_direction = 2;  // Move to middle
+                    actuator_extend(actuator_control);
+                }
+                break;
+            }
+
+            // [3] Move to middle position
+            if (actuator_control->homing_direction == 2) {
+                uint32_t move_time = actuator_control->extend_time / 2;
+                if (current_time - actuator_control->homing_start_time - actuator_control->extend_time - actuator_control->shrink_time >= move_time) {
+                    actuator_stop(actuator_control);
+                    actuator_control->state = ACTUATOR_IDLE;
+                }
             }
             break;
 
@@ -72,23 +98,8 @@ void actuator_start_homing(ActuatorControl_t* actuator_control) {
         actuator_control->state = ACTUATOR_HOMING;
         actuator_control->homing_direction = 0;
         actuator_control->homing_start_time = 0;
-        actuator_control->homing_duration = 0;
-    }
-}
-
-void actuator_start_extending(ActuatorControl_t* actuator_control) {
-    if (actuator_control->state == ACTUATOR_IDLE && 
-        !button_is_pressed(&actuator_control->extend_switch)) {
-        actuator_control->state = ACTUATOR_EXTENDING;
-        actuator_extend(actuator_control);
-    }
-}
-
-void actuator_start_shrinking(ActuatorControl_t* actuator_control) {
-    if (actuator_control->state == ACTUATOR_IDLE && 
-        !button_is_pressed(&actuator_control->shrink_switch)) {
-        actuator_control->state = ACTUATOR_SHRINKING;
-        actuator_shrink(actuator_control);
+        actuator_control->extend_time = 0;
+        actuator_control->shrink_time = 0;
     }
 }
 

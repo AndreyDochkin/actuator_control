@@ -57,8 +57,8 @@ typedef enum
 } HomingDirection_t;
 
 void actuator_init(ActuatorControl_t *act_cntrl, const ActuatorConfig_t *config);
-void actuator_update(ActuatorControl_t *act_cntrl, uint32_t current_time);
-void actuator_start_homing(ActuatorControl_t *act_cntrl);
+void actuator_update(ActuatorControl_t *act_cntrl, uint32_t current_time); // Call this function constatly from loop
+void actuator_start_homing(ActuatorControl_t *act_cntrl);                  // Call this function to start homing
 ActuatorState_t actuator_get_state(const ActuatorControl_t *act_cntrl);
 uint8_t actuator_error(const ActuatorControl_t *act_cntrl);
 

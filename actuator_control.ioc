@@ -1,6 +1,6 @@
 #MicroXplorer Configuration settings - do not modify
-CAD.formats=
-CAD.pinconfig=
+CAD.formats=[]
+CAD.pinconfig=Dual
 CAD.provider=
 File.Version=6
 GPIO.groupedBy=Group By Peripherals
@@ -61,12 +61,14 @@ PB6.GPIOParameters=GPIO_Label
 PB6.GPIO_Label=LED_SHRINK
 PB6.Locked=true
 PB6.Signal=GPIO_Output
-PB7.GPIOParameters=GPIO_Label
+PB7.GPIOParameters=GPIO_PuPd,GPIO_Label
 PB7.GPIO_Label=EXTEND_SWITCH
+PB7.GPIO_PuPd=GPIO_PULLDOWN
 PB7.Locked=true
 PB7.Signal=GPIO_Input
-PB8.GPIOParameters=GPIO_Label
+PB8.GPIOParameters=GPIO_PuPd,GPIO_Label
 PB8.GPIO_Label=SHRINK_SWITCH
+PB8.GPIO_PuPd=GPIO_PULLDOWN
 PB8.Locked=true
 PB8.Signal=GPIO_Input
 PD0-OSC_IN.Mode=HSE-External-Oscillator

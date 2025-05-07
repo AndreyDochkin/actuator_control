@@ -62,7 +62,7 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pins : EXTEND_SWITCH_Pin SHRINK_SWITCH_Pin */
   GPIO_InitStruct.Pin = EXTEND_SWITCH_Pin|SHRINK_SWITCH_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }

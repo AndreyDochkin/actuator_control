@@ -59,28 +59,27 @@ static void handle_homing_sequence(ActuatorControl_t* act_cntrl, uint32_t curren
         case HOMING_DIR_SHRINK:
             if (button_is_pressed(&act_cntrl->shrink_switch)) {
                 if (act_cntrl->extend_time == 0) {
-                    // 1 shrink phase - just reached initial position
-                    act_cntrl->homing_start_time = current_time;  // Start timing from here
-                    act_cntrl->homing_direction = HOMING_DIR_EXTEND;  // Switch to extending
+                    //  1 shrink phase - just reached initial position
+                    act_cntrl->homing_start_time = current_time;  //Start timing from here
+                    act_cntrl->homing_direction = HOMING_DIR_EXTEND;  //  Switch to extending
                 } else {
-                    // 3 shrink phase - measuring shrink time
+                    //  3 shrink phase - measuring shrink time
                     act_cntrl->shrink_time = current_time - act_cntrl->homing_start_time - act_cntrl->extend_time;
-                    act_cntrl->homing_direction = HOMING_DIR_MIDDLE;  // Move to middle
+                    act_cntrl->homing_direction = HOMING_DIR_MIDDLE;  //  Move to middle
                 }
                 actuator_extend(act_cntrl);
             }
             break;
 
-        case HOMING_DIR_EXTEND:
-            // 2 extend phase - measuring extend time
+        case HOMING_DIR_EXTEND:  //  2 extend phase - measuring extend time
             if (button_is_pressed(&act_cntrl->extend_switch)) {
                 act_cntrl->extend_time = current_time - act_cntrl->homing_start_time;
-                act_cntrl->homing_direction = HOMING_DIR_SHRINK;  // Switch to shrinking
+                act_cntrl->homing_direction = HOMING_DIR_SHRINK;  //Switch to shrinking
                 actuator_shrink(act_cntrl);
             }
             break;
 
-        case HOMING_DIR_MIDDLE:
+        case HOMING_DIR_MIDDLE: // 4 phase set actuator to the middle
             {
                 uint32_t move_time = act_cntrl->extend_time / 2;
                 if (current_time - act_cntrl->homing_start_time - act_cntrl->extend_time - act_cntrl->shrink_time >= move_time) {

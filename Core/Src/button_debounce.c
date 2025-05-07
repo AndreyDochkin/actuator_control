@@ -14,6 +14,7 @@ void button_init(Button* btn, uint8_t active_state, uint32_t debounce_delay) {
     btn->debounce_delay = debounce_delay;
     btn->stable_state = !active_state; // Start in released state
     btn->last_raw_state = !active_state;
+    btn->last_stable_state = !active_state;
     btn->last_time = 0;
 }
 
@@ -35,17 +36,15 @@ uint8_t button_is_pressed(Button* btn) {
 }
 
 uint8_t button_just_pressed(Button* btn) {
-    static uint8_t last_state = 0;
     uint8_t current_state = button_is_pressed(btn);
-    uint8_t result = (current_state && !last_state);
-    last_state = current_state;
+    uint8_t result = (current_state && !btn->last_stable_state);
+    btn->last_stable_state = current_state;
     return result;
 }
 
 uint8_t button_just_released(Button* btn) {
-    static uint8_t last_state = 0;
     uint8_t current_state = button_is_pressed(btn);
-    uint8_t result = (!current_state && last_state);
-    last_state = current_state;
+    uint8_t result = (!current_state && btn->last_stable_state);
+    btn->last_stable_state = current_state;
     return result;
 }

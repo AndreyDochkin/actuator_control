@@ -19,11 +19,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "gpio.h"
-#include "actuator_control.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "actuator_control.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,7 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define MS_TO_TICKS(ms) ((ms) * (HAL_GetTickFreq() / 1000))
+#define DEBOUNCE_TIME_MS 3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -42,9 +42,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-ActuatorControl_t actuator;
-/* USER CODE BEGIN PV */
 
+/* USER CODE BEGIN PV */
+ActuatorControl_t actuator_control;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,7 +93,7 @@ int main(void)
   ActuatorConfig_t actuator_config = {
       .extend_active_level = GPIO_PIN_SET,    
       .shrink_active_level = GPIO_PIN_SET,    
-      .debounce_time_ms = 50,
+      .debounce_time_ms = MS_TO_TICKS(DEBOUNCE_TIME_MS),
       
       .extend_control_port = GPIOB,
       .extend_control_pin = EXTEND_CNTR_Pin,
@@ -110,10 +110,10 @@ int main(void)
   };
 
   // Initialize actuator
-  actuator_init(&actuator, &actuator_config);
+  actuator_init(&actuator_control, &actuator_config);
 
   // Start homing
-  actuator_start_homing(&actuator);
+  actuator_start_homing(&actuator_control);
 
   /* USER CODE END 2 */
 
@@ -123,16 +123,18 @@ int main(void)
   {
     uint32_t current_time = HAL_GetTick();
 
-    actuator_update(&actuator, current_time);
+    actuator_update(&actuator_control, current_time);
 
-    if (actuator_get_state(&actuator) == ACTUATOR_IDLE)
+    if (actuator_get_state(&actuator_control) == ACTUATOR_IDLE)
     {
       // ready
     }
-    else if (actuator_error(&actuator))
+    else if (actuator_error(&actuator_control))
     {
       // error
     }
+
+    HAL_Delay(5);
 
     /* USER CODE END WHILE */
 

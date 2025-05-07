@@ -18,6 +18,7 @@ typedef struct {
     uint32_t last_time;         // Last state change timestamp
     uint32_t debounce_delay;    // Debounce time in milliseconds
     uint8_t active_state;       // Button pressed state (LOW/HIGH)
+    uint8_t last_stable_state;  // Previous stable state for edge detection
 } Button;
 
 // Initialize button parameters

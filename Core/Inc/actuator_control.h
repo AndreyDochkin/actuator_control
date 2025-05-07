@@ -1,8 +1,8 @@
 #ifndef ACTUATOR_CONTROL_H
 #define ACTUATOR_CONTROL_H
 
-#include <stdint.h>
 #include "button_debounce.h"
+#include "main.h"
 
 // Actuator states
 typedef enum
@@ -20,6 +20,18 @@ typedef struct
     uint8_t extend_active_level;
     uint8_t shrink_active_level;
     uint32_t debounce_time_ms;
+    GPIO_TypeDef* extend_control_port;
+    uint16_t extend_control_pin;
+    GPIO_TypeDef* shrink_control_port;
+    uint16_t shrink_control_pin;
+    GPIO_TypeDef* extend_switch_port;
+    uint16_t extend_switch_pin;
+    GPIO_TypeDef* shrink_switch_port;
+    uint16_t shrink_switch_pin;
+    GPIO_TypeDef* led_extend_port;
+    uint16_t led_extend_pin;
+    GPIO_TypeDef* led_shrink_port;
+    uint16_t led_shrink_pin;
 } ActuatorConfig_t;
 
 // Actuator control structure

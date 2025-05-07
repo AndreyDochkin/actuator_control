@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "gpio.h"
+#include "actuator_control.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -41,7 +42,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
+ActuatorControl_t actuator;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -88,12 +89,51 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
 
+  // Initialize actuator configuration
+  ActuatorConfig_t actuator_config = {
+      .extend_active_level = GPIO_PIN_SET,    
+      .shrink_active_level = GPIO_PIN_SET,    
+      .debounce_time_ms = 50,
+      
+      .extend_control_port = GPIOB,
+      .extend_control_pin = EXTEND_CNTR_Pin,
+      .shrink_control_port = GPIOB,
+      .shrink_control_pin = SHRINK_CNTR_Pin,
+      .extend_switch_port = GPIOB,
+      .extend_switch_pin = EXTEND_SWITCH_Pin,
+      .shrink_switch_port = GPIOB,
+      .shrink_switch_pin = SHRINK_SWITCH_Pin,
+      .led_extend_port = GPIOB,
+      .led_extend_pin = LED_EXTEND_Pin,
+      .led_shrink_port = GPIOB,
+      .led_shrink_pin = LED_SHRINK_Pin
+  };
+
+  // Initialize actuator
+  actuator_init(&actuator, &actuator_config);
+
+  // Start homing
+  actuator_start_homing(&actuator);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    current_time = HAL_GetTick();
+
+    actuator_update(&actuator, current_time);
+
+    if (actuator_get_state(&actuator) == ACTUATOR_IDLE)
+    {
+      // ready
+    }
+    else if (actuator_error(&actuator))
+    {
+      // error
+    }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

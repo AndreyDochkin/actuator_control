@@ -44,7 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-ActuatorControl_t actuator_control;
+ActuatorControl_t actuator_control; // actuator currnet state structure
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -125,7 +125,7 @@ int main(void)
 
     actuator_update(&actuator_control, current_time);
 
-    if (actuator_get_state(&actuator_control) == ACTUATOR_IDLE)
+    if (actuator_get_state(&actuator_control) == ACTUATOR_IDLE && !actuator_is_homing(&actuator_control))
     {
       // ready
     }

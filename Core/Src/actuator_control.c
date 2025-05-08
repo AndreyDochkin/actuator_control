@@ -7,8 +7,9 @@ static void handle_homing_sequence(ActuatorControl_t* act_cntrl, uint32_t curren
 void actuator_init(ActuatorControl_t* act_cntrl, const ActuatorConfig_t* config) {
     act_cntrl->config = *config;
     act_cntrl->state = ACTUATOR_IDLE;
-    act_cntrl->homing_start_time = 0;
-    act_cntrl->homing_direction = HOMING_DIR_NONE;
+    act_cntrl->is_homing = 0;
+    act_cntrl->homing_phase = HOMING_PHASE_INIT;
+    act_cntrl->homing_last_phase_end_time = 0;
     act_cntrl->extend_time = 0;
     act_cntrl->shrink_time = 0;
 
@@ -17,29 +18,32 @@ void actuator_init(ActuatorControl_t* act_cntrl, const ActuatorConfig_t* config)
 }
 
 void actuator_update(ActuatorControl_t* act_cntrl, uint32_t current_time) {
-    
-    update_switches(act_cntrl, current_time); // Update switch states with debouncing
+    update_switches(act_cntrl, current_time);
+
+    // SPECIAL CASE
+    // if homing, handle homing sequence
+    if (act_cntrl->is_homing) {
+        handle_homing_sequence(act_cntrl, current_time);
+        return;
+    }
 
     switch (act_cntrl->state) {
-        case ACTUATOR_HOMING:
-            handle_homing_sequence(act_cntrl, current_time);
-            break;
-
         case ACTUATOR_EXTENDING:
             if (button_is_pressed(&act_cntrl->extend_switch)) {
                 actuator_stop(act_cntrl);
-                act_cntrl->state = ACTUATOR_IDLE;
             }
             break;
 
         case ACTUATOR_SHRINKING:
             if (button_is_pressed(&act_cntrl->shrink_switch)) {
                 actuator_stop(act_cntrl);
-                act_cntrl->state = ACTUATOR_IDLE;
             }
             break;
 
         case ACTUATOR_IDLE:
+            // actuator do nothing
+            break;
+
         case ACTUATOR_ERROR:
             actuator_stop(act_cntrl);
             break;
@@ -48,48 +52,50 @@ void actuator_update(ActuatorControl_t* act_cntrl, uint32_t current_time) {
 
 static void handle_homing_sequence(ActuatorControl_t* act_cntrl, uint32_t current_time) {
     // Initialize homing if not started
-    if (act_cntrl->homing_start_time == 0) {
-        act_cntrl->homing_direction = HOMING_DIR_SHRINK;  // Start with shrinking
-        act_cntrl->homing_start_time = current_time;      // Set start time when homing begins
+    if (act_cntrl->homing_last_phase_end_time == 0) {
+        act_cntrl->homing_phase = HOMING_PHASE_INIT;
+        act_cntrl->homing_last_phase_end_time = current_time;
         actuator_shrink(act_cntrl);
         return;
     }
 
-    switch (act_cntrl->homing_direction) {
-        case HOMING_DIR_SHRINK:
-            if (button_is_pressed(&act_cntrl->shrink_switch)) {
-                if (act_cntrl->extend_time == 0) {
-                    //  1 shrink phase - just reached initial position
-                    act_cntrl->homing_start_time = current_time;  //Start timing from here
-                    act_cntrl->homing_direction = HOMING_DIR_EXTEND;  //  Switch to extending
-                } else {
-                    //  3 shrink phase - measuring shrink time
-                    act_cntrl->shrink_time = current_time - act_cntrl->homing_start_time - act_cntrl->extend_time;
-                    act_cntrl->homing_direction = HOMING_DIR_MIDDLE;  //  Move to middle
-                }
+    switch (act_cntrl->homing_phase) {
+        case HOMING_PHASE_INIT: // shrink to set start position
+            if (act_cntrl->state == ACTUATOR_SHRINKING && button_is_pressed(&act_cntrl->shrink_switch)) {
+                act_cntrl->homing_phase = HOMING_PHASE_EXTEND;
+                act_cntrl->homing_last_phase_end_time = current_time;
                 actuator_extend(act_cntrl);
             }
             break;
 
-        case HOMING_DIR_EXTEND:  //  2 extend phase - measuring extend time
-            if (button_is_pressed(&act_cntrl->extend_switch)) {
-                act_cntrl->extend_time = current_time - act_cntrl->homing_start_time;
-                act_cntrl->homing_direction = HOMING_DIR_SHRINK;  //Switch to shrinking
+        case HOMING_PHASE_EXTEND:  // extend to mesure extend time
+            if (act_cntrl->state == ACTUATOR_EXTENDING && button_is_pressed(&act_cntrl->extend_switch)) {
+                act_cntrl->extend_time = current_time - act_cntrl->homing_last_phase_end_time;
+                act_cntrl->homing_phase = HOMING_PHASE_SHRINK;
+                act_cntrl->homing_last_phase_end_time = current_time;
                 actuator_shrink(act_cntrl);
             }
             break;
 
-        case HOMING_DIR_MIDDLE: // 4 phase set actuator to the middle
-            {
-                uint32_t move_time = act_cntrl->extend_time / 2;
-                if (current_time - act_cntrl->homing_start_time - act_cntrl->extend_time - act_cntrl->shrink_time >= move_time) {
-                    actuator_stop(act_cntrl);
-                    act_cntrl->state = ACTUATOR_IDLE;
-                }
+        case HOMING_PHASE_SHRINK: // shrink to measuring time shrink time
+            if (act_cntrl->state == ACTUATOR_SHRINKING && button_is_pressed(&act_cntrl->shrink_switch)) {
+                act_cntrl->shrink_time = current_time - act_cntrl->homing_last_phase_end_time;
+                act_cntrl->homing_phase = HOMING_PHASE_MIDDLE;
+                act_cntrl->homing_last_phase_end_time = current_time;
+                actuator_extend(act_cntrl);
             }
             break;
 
-        default:
+        case HOMING_PHASE_MIDDLE: // move to middle position 
+            {
+                // we use extend time because we start from shrink position at this point
+                // so it's really does't matter if extend and shrink times are different
+                uint32_t move_time = act_cntrl->extend_time / 2; 
+                if (current_time - act_cntrl->homing_last_phase_end_time >= move_time) {
+                    actuator_stop(act_cntrl);
+                    act_cntrl->is_homing = 0;
+                }
+            }
             break;
     }
 }
@@ -101,15 +107,20 @@ void actuator_start_homing(ActuatorControl_t *act_cntrl)
         actuator_stop(act_cntrl);
     }
 
-    act_cntrl->state = ACTUATOR_HOMING;
-    act_cntrl->homing_direction = HOMING_DIR_NONE;
-    act_cntrl->homing_start_time = 0;
+    act_cntrl->is_homing = 1;
+    act_cntrl->homing_phase = HOMING_PHASE_INIT;
+    act_cntrl->homing_last_phase_end_time = 0;
     act_cntrl->extend_time = 0;
     act_cntrl->shrink_time = 0;
+    actuator_shrink(act_cntrl);  //start immediately
 }
 
 ActuatorState_t actuator_get_state(const ActuatorControl_t* act_cntrl) {
     return act_cntrl->state;
+}
+
+ActuatorState_t actuator_is_homing(const ActuatorControl_t* act_cntrl) {
+    return act_cntrl->is_homing;
 }
 
 uint8_t actuator_error(const ActuatorControl_t* act_cntrl) {
@@ -118,6 +129,7 @@ uint8_t actuator_error(const ActuatorControl_t* act_cntrl) {
 
 void actuator_extend(ActuatorControl_t *act_cntrl)
 {
+    act_cntrl->state = ACTUATOR_EXTENDING;
     HAL_GPIO_WritePin(act_cntrl->config.extend_control_port,
                       act_cntrl->config.extend_control_pin,
                       act_cntrl->config.extend_active_level);
@@ -134,6 +146,7 @@ void actuator_extend(ActuatorControl_t *act_cntrl)
 
 void actuator_shrink(ActuatorControl_t *act_cntrl)
 {
+    act_cntrl->state = ACTUATOR_SHRINKING;
     HAL_GPIO_WritePin(act_cntrl->config.extend_control_port,
                       act_cntrl->config.extend_control_pin,
                       !act_cntrl->config.extend_active_level);
@@ -150,6 +163,7 @@ void actuator_shrink(ActuatorControl_t *act_cntrl)
 
 void actuator_stop(ActuatorControl_t *act_cntrl)
 {
+    act_cntrl->state = ACTUATOR_IDLE;
     HAL_GPIO_WritePin(act_cntrl->config.extend_control_port,
                       act_cntrl->config.extend_control_pin,
                       !act_cntrl->config.extend_active_level);

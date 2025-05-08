@@ -8,11 +8,19 @@
 typedef enum
 {
     ACTUATOR_IDLE = 0,
-    ACTUATOR_HOMING,
     ACTUATOR_EXTENDING,
     ACTUATOR_SHRINKING,
     ACTUATOR_ERROR
 } ActuatorState_t;
+
+// Homing phase
+typedef enum
+{
+    HOMING_PHASE_INIT = 0,      // Initial phase - moving to shrink position
+    HOMING_PHASE_EXTEND,        // Measuring extend time
+    HOMING_PHASE_SHRINK,        // Measuring shrink time
+    HOMING_PHASE_MIDDLE         // Moving to middle position
+} HomingPhase_t;
 
 // Actuator configuration
 typedef struct
@@ -39,27 +47,20 @@ typedef struct
 {
     ActuatorConfig_t config;
     ActuatorState_t state;
-    uint32_t homing_start_time;
-    int8_t homing_direction;
+    uint8_t is_homing;                   // Flag homing in progress
+    HomingPhase_t homing_phase;          // Current phase of homing
+    uint32_t homing_last_phase_end_time; // time of last phase end
     uint32_t extend_time;
     uint32_t shrink_time;
-    Button extend_switch;
-    Button shrink_switch;
+    Button extend_switch; // end switch for extend
+    Button shrink_switch; // end switch for shrink
 } ActuatorControl_t;
-
-// Homing direction commands
-typedef enum
-{
-    HOMING_DIR_NONE = 0,
-    HOMING_DIR_EXTEND,
-    HOMING_DIR_SHRINK,
-    HOMING_DIR_MIDDLE
-} HomingDirection_t;
 
 void actuator_init(ActuatorControl_t *act_cntrl, const ActuatorConfig_t *config);
 void actuator_update(ActuatorControl_t *act_cntrl, uint32_t current_time); // Call this function constatly from loop
 void actuator_start_homing(ActuatorControl_t *act_cntrl);                  // Call this function to start homing
 ActuatorState_t actuator_get_state(const ActuatorControl_t *act_cntrl);
+uint8_t actuator_is_homing(const ActuatorControl_t *act_cntrl);
 uint8_t actuator_error(const ActuatorControl_t *act_cntrl);
 
 void actuator_extend(ActuatorControl_t *act_cntrl);

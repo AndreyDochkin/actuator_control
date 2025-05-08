@@ -4,6 +4,7 @@ Test task for C language skills. Linear actuator control.
 
 ## Notes
 
+* STM32CubeIDE v1.18.1 and STM32CubeMX v6.14.1 were used for the project.
 * Implements a state machine for actuator control.
 * Homing is part of the actuator state machine but treated as a special case.
 * Used my own `button_debouncer` library. https://github.com/AndreyDochkin/button_debounce

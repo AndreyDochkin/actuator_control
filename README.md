@@ -1,7 +1,5 @@
 # Actuator Control
 
-Test task for C language skills. Linear actuator control.
-
 ## Notes
 
 * STM32CubeIDE v1.18.1 and STM32CubeMX v6.14.1 were used for the project.

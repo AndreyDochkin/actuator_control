@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "gpio.h"
+#include "main.h"           /* Pin defines used below (EXTEND_CNTR_Pin, etc.) */
 
 /* USER CODE BEGIN 0 */
 

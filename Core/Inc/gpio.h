@@ -26,7 +26,8 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
+/* gpio.h only declares MX_GPIO_Init() — no HAL types needed */
+#include <stdint.h>
 
 /* USER CODE BEGIN Includes */
 

@@ -1,50 +1,94 @@
 /**
  * @file    button_debounce.c
  * @author  Andrei Dochkin
- * @brief   Debounce handling for mechanical buttons.
+ * @brief   Debounce handling for mechanical switches / buttons.
  *
- * This module provides a simple interface for debouncing button input.
- * It tracks raw and stable states, detects edge transitions, and supports
- * configurable debounce timing and active level (HIGH or LOW).
+ * This module provides a simple, stateful debouncer for mechanical inputs.
+ * Edge flags (just_pressed / just_released) are computed inside
+ * button_debounce_update() and are valid for one cycle only.
  */
 #include "button_debounce.h"
 
-void button_init(Button* btn, uint8_t active_state, uint32_t debounce_delay) {
-    btn->active_state = active_state;
-    btn->debounce_delay = debounce_delay;
-    btn->stable_state = !active_state; // Start in released state
-    btn->last_raw_state = !active_state;
-    btn->last_stable_state = !active_state;
-    btn->last_time = 0;
-}
+/* -------------------------------------------------------------------------- */
+/*   Public API                                                               */
+/* -------------------------------------------------------------------------- */
 
-void button_update(Button* btn, uint8_t current_state, uint32_t current_time) {
-    // Reset debounce timer if state changed
-    if (current_state != btn->last_raw_state) {
-        btn->last_time = current_time;
-        btn->last_raw_state = current_state;
+void button_debounce_init(ButtonDebounce_t *p_btn,
+                          uint8_t active_state,
+                          uint32_t debounce_delay)
+{
+    if (p_btn == NULL) {
+        return;                      /* Defensive — caller must supply valid ptr */
     }
 
-    // Only update stable state if debounce period has passed
-    if ((current_time - btn->last_time) >= btn->debounce_delay) {
-        btn->stable_state = current_state;
+    const uint8_t inactive = (uint8_t)(!active_state);
+
+    p_btn->active_state    = active_state;
+    p_btn->debounce_delay  = debounce_delay;
+    p_btn->stable_state    = inactive;
+    p_btn->last_raw_state  = inactive;
+    p_btn->last_stable     = 0U;
+    p_btn->last_time       = 0U;
+    p_btn->just_pressed    = 0U;
+    p_btn->just_released   = 0U;
+}
+
+void button_debounce_update(ButtonDebounce_t *p_btn,
+                            uint8_t raw_state,
+                            uint32_t current_time)
+{
+    if (p_btn == NULL) {
+        return;
+    }
+
+    /* ---- Reset one-shot edge flags (valid for one cycle only) ---- */
+    p_btn->just_pressed  = 0U;
+    p_btn->just_released = 0U;
+
+    /* ---- Debounce filter ---- */
+    if (raw_state != p_btn->last_raw_state) {
+        p_btn->last_time      = current_time;
+        p_btn->last_raw_state = raw_state;
+    }
+
+    if ((current_time - p_btn->last_time) >= p_btn->debounce_delay) {
+        p_btn->stable_state = raw_state;
+    }
+
+    /* ---- Edge detection (always safe now that edge flags are in the struct) ---- */
+    {
+        const uint8_t currently_pressed = (p_btn->stable_state == p_btn->active_state) ? 1U : 0U;
+
+        if (currently_pressed && (p_btn->last_stable == 0U)) {
+            p_btn->just_pressed = 1U;
+        } else if ((currently_pressed == 0U) && p_btn->last_stable) {
+            p_btn->just_released = 1U;
+        }
+
+        p_btn->last_stable = currently_pressed;
     }
 }
 
-uint8_t button_is_pressed(Button* btn) {
-    return btn->stable_state == btn->active_state;
+uint8_t button_debounce_is_pressed(const ButtonDebounce_t *p_btn)
+{
+    if (p_btn == NULL) {
+        return 0U;
+    }
+    return (p_btn->stable_state == p_btn->active_state) ? 1U : 0U;
 }
 
-uint8_t button_just_pressed(Button* btn) {
-    uint8_t current_state = button_is_pressed(btn);
-    uint8_t result = (current_state && !btn->last_stable_state);
-    btn->last_stable_state = current_state;
-    return result;
+uint8_t button_debounce_just_pressed(const ButtonDebounce_t *p_btn)
+{
+    if (p_btn == NULL) {
+        return 0U;
+    }
+    return p_btn->just_pressed;
 }
 
-uint8_t button_just_released(Button* btn) {
-    uint8_t current_state = button_is_pressed(btn);
-    uint8_t result = (!current_state && btn->last_stable_state);
-    btn->last_stable_state = current_state;
-    return result;
+uint8_t button_debounce_just_released(const ButtonDebounce_t *p_btn)
+{
+    if (p_btn == NULL) {
+        return 0U;
+    }
+    return p_btn->just_released;
 }

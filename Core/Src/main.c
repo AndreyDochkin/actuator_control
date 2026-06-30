@@ -96,17 +96,17 @@ int main(void)
       .shrink_active_level = GPIO_PIN_SET,
       .debounce_time_ms    = MS_TO_TICKS(DEBOUNCE_TIME_MS),
 
-      .extend_control_port = GPIOB,
+      .extend_control_port = (void*)GPIOB,
       .extend_control_pin  = EXTEND_CNTR_Pin,
-      .shrink_control_port = GPIOB,
+      .shrink_control_port = (void*)GPIOB,
       .shrink_control_pin  = SHRINK_CNTR_Pin,
-      .extend_switch_port  = GPIOB,
+      .extend_switch_port  = (void*)GPIOB,
       .extend_switch_pin   = EXTEND_SWITCH_Pin,
-      .shrink_switch_port  = GPIOB,
+      .shrink_switch_port  = (void*)GPIOB,
       .shrink_switch_pin   = SHRINK_SWITCH_Pin,
-      .led_extend_port     = GPIOB,
+      .led_extend_port     = (void*)GPIOB,
       .led_extend_pin      = LED_EXTEND_Pin,
-      .led_shrink_port     = GPIOB,
+      .led_shrink_port     = (void*)GPIOB,
       .led_shrink_pin      = LED_SHRINK_Pin
   };
 

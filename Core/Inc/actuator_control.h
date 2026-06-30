@@ -4,6 +4,11 @@
  *
  * This module manages an actuator with two limit switches and provides
  * state-machine-based homing sequence, debounced input, and LED feedback.
+ *
+ * @note    This header is HAL-agnostic. GPIO port pointers are passed as
+ *          `void*` to decouple the API from any specific hardware layer.
+ *          The implementation (actuator_control.c) casts them to the
+ *          appropriate HAL type at runtime.
  */
 
 #ifndef ACTUATOR_CONTROL_H
@@ -11,7 +16,6 @@
 
 #include <stdint.h>
 #include "button_debounce.h"
-#include "main.h"
 
 /* -------------------------------------------------------------------------- */
 /*   Macros                                                                   */
@@ -19,9 +23,11 @@
 
 /**
  * @brief  Convert milliseconds to system tick units.
- * @note   Assumes HAL_GetTickFreq() returns the SysTick frequency in Hz.
+ * @note   Assumes a 1 ms SysTick period (the standard HAL configuration).
+ *         No runtime HAL call is needed.
  */
-#define MS_TO_TICKS(ms)     ((ms) * (HAL_GetTickFreq() / 1000U))
+#define MS_TO_TICKS(ms)     ((uint32_t)(ms))
+
 #define DEBOUNCE_TIME_MS    3U
 
 /* -------------------------------------------------------------------------- */
@@ -55,22 +61,24 @@ typedef enum {
 /**
  * @brief  Actuator hardware configuration.
  * @note   Populated at startup and never modified afterwards.
+ *         GPIO port pointers are stored as `void*` to avoid coupling this
+ *         header to any specific HAL / CMSIS type.
  */
 typedef struct {
     uint8_t       extend_active_level;     /**< GPIO level that drives the extend relay   */
     uint8_t       shrink_active_level;     /**< GPIO level that drives the shrink relay   */
     uint32_t      debounce_time_ms;        /**< Switch debounce window in ticks           */
-    GPIO_TypeDef* extend_control_port;     /**< GPIO port for extend control output       */
+    void*         extend_control_port;     /**< GPIO port for extend control output       */
     uint16_t      extend_control_pin;      /**< GPIO pin  for extend control output       */
-    GPIO_TypeDef* shrink_control_port;     /**< GPIO port for shrink control output       */
+    void*         shrink_control_port;     /**< GPIO port for shrink control output       */
     uint16_t      shrink_control_pin;      /**< GPIO pin  for shrink control output       */
-    GPIO_TypeDef* extend_switch_port;      /**< GPIO port for extend limit switch input   */
+    void*         extend_switch_port;      /**< GPIO port for extend limit switch input   */
     uint16_t      extend_switch_pin;       /**< GPIO pin  for extend limit switch input   */
-    GPIO_TypeDef* shrink_switch_port;      /**< GPIO port for shrink limit switch input   */
+    void*         shrink_switch_port;      /**< GPIO port for shrink limit switch input   */
     uint16_t      shrink_switch_pin;       /**< GPIO pin  for shrink limit switch input   */
-    GPIO_TypeDef* led_extend_port;         /**< GPIO port for extend-direction LED        */
+    void*         led_extend_port;         /**< GPIO port for extend-direction LED        */
     uint16_t      led_extend_pin;          /**< GPIO pin  for extend-direction LED        */
-    GPIO_TypeDef* led_shrink_port;         /**< GPIO port for shrink-direction LED        */
+    void*         led_shrink_port;         /**< GPIO port for shrink-direction LED        */
     uint16_t      led_shrink_pin;          /**< GPIO pin  for shrink-direction LED        */
 } ActuatorConfig_t;
 
@@ -79,15 +87,15 @@ typedef struct {
  * @note   All state is held here — no global variables in the module.
  */
 typedef struct {
-    ActuatorConfig_t config;                 /**< Hardware configuration (immutable at runtime)   */
-    ActuatorState_t  state;                  /**< Current actuator state                           */
-    uint8_t          is_homing;              /**< Non-zero while homing sequence is active        */
-    HomingPhase_t    homing_phase;           /**< Current phase of the homing sequence            */
-    uint32_t         homing_last_phase_end_time; /**< Tick timestamp when last homing phase ended  */
-    uint32_t         extend_time;            /**< Full-extend travel time measured during homing  */
-    uint32_t         shrink_time;            /**< Full-shrink travel time measured during homing  */
-    Button           extend_switch;          /**< Debounced extend limit switch                   */
-    Button           shrink_switch;          /**< Debounced shrink limit switch                   */
+    ActuatorConfig_t  config;                 /**< Hardware configuration (immutable at runtime)   */
+    ActuatorState_t   state;                  /**< Current actuator state                           */
+    uint8_t           is_homing;              /**< Non-zero while homing sequence is active        */
+    HomingPhase_t     homing_phase;           /**< Current phase of the homing sequence            */
+    uint32_t          homing_last_phase_end_time; /**< Tick timestamp when last homing phase ended  */
+    uint32_t          extend_time;            /**< Full-extend travel time measured during homing  */
+    uint32_t          shrink_time;            /**< Full-shrink travel time measured during homing  */
+    ButtonDebounce_t  extend_switch;          /**< Debounced extend limit switch                   */
+    ButtonDebounce_t  shrink_switch;          /**< Debounced shrink limit switch                   */
 } ActuatorControl_t;
 
 /* -------------------------------------------------------------------------- */
@@ -96,61 +104,61 @@ typedef struct {
 
 /**
  * @brief  Initialise actuator control structure with a hardware configuration.
- * @param  act_cntrl  Pointer to the actuator control structure (out).
- * @param  config     Pointer to the read-only hardware configuration (in).
+ * @param  p_act   Pointer to the actuator control structure (out).
+ * @param  p_cfg   Pointer to the read-only hardware configuration (in).
  */
-void actuator_init(ActuatorControl_t *act_cntrl, const ActuatorConfig_t *config);
+void actuator_init(ActuatorControl_t *p_act, const ActuatorConfig_t *p_cfg);
 
 /**
  * @brief  Periodic update function — call this from the main loop.
- * @param  act_cntrl    Pointer to the actuator control structure.
+ * @param  p_act        Pointer to the actuator control structure.
  * @param  current_time Current system tick value from HAL_GetTick().
  */
-void actuator_update(ActuatorControl_t *act_cntrl, uint32_t current_time);
+void actuator_update(ActuatorControl_t *p_act, uint32_t current_time);
 
 /**
  * @brief  Start the homing sequence (non-blocking).
- * @param  act_cntrl  Pointer to the actuator control structure.
+ * @param  p_act  Pointer to the actuator control structure.
  */
-void actuator_start_homing(ActuatorControl_t *act_cntrl);
+void actuator_start_homing(ActuatorControl_t *p_act);
 
 /**
  * @brief  Get the current actuator state.
- * @param  act_cntrl  Pointer to the actuator control structure (read-only).
+ * @param  p_act  Pointer to the actuator control structure (read-only).
  * @return Current ActuatorState_t value.
  */
-ActuatorState_t actuator_get_state(const ActuatorControl_t *act_cntrl);
+ActuatorState_t actuator_get_state(const ActuatorControl_t *p_act);
 
 /**
  * @brief  Check whether the homing sequence is still running.
- * @param  act_cntrl  Pointer to the actuator control structure (read-only).
+ * @param  p_act  Pointer to the actuator control structure (read-only).
  * @return Non-zero if homing is in progress, zero otherwise.
  */
-uint8_t actuator_is_homing(const ActuatorControl_t *act_cntrl);
+uint8_t actuator_is_homing(const ActuatorControl_t *p_act);
 
 /**
  * @brief  Check if the actuator is in the error state.
- * @param  act_cntrl  Pointer to the actuator control structure (read-only).
+ * @param  p_act  Pointer to the actuator control structure (read-only).
  * @return Non-zero if in ACTUATOR_ERROR state, zero otherwise.
  */
-uint8_t actuator_is_error(const ActuatorControl_t *act_cntrl);
+uint8_t actuator_is_error(const ActuatorControl_t *p_act);
 
 /**
  * @brief  Command the actuator to extend.
- * @param  act_cntrl  Pointer to the actuator control structure.
+ * @param  p_act  Pointer to the actuator control structure.
  */
-void actuator_extend(ActuatorControl_t *act_cntrl);
+void actuator_extend(ActuatorControl_t *p_act);
 
 /**
  * @brief  Command the actuator to shrink.
- * @param  act_cntrl  Pointer to the actuator control structure.
+ * @param  p_act  Pointer to the actuator control structure.
  */
-void actuator_shrink(ActuatorControl_t *act_cntrl);
+void actuator_shrink(ActuatorControl_t *p_act);
 
 /**
  * @brief  Stop the actuator (all outputs de-energised, state -> IDLE).
- * @param  act_cntrl  Pointer to the actuator control structure.
+ * @param  p_act  Pointer to the actuator control structure.
  */
-void actuator_stop(ActuatorControl_t *act_cntrl);
+void actuator_stop(ActuatorControl_t *p_act);
 
 #endif /* ACTUATOR_CONTROL_H */

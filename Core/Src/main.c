@@ -32,8 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MS_TO_TICKS(ms) ((ms) * (HAL_GetTickFreq() / 1000))
-#define DEBOUNCE_TIME_MS 3
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,7 +43,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-ActuatorControl_t actuator_control; // actuator currnet state structure
+static ActuatorControl_t s_actuator_control;   /* Actuator state — file-scoped */
+static uint32_t          s_last_update_tick;    /* Last tick the loop ran at   */
+static const uint32_t    LOOP_COOLDOWN_MS = 1U; /* Minimum period between iterations */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,31 +90,30 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
 
-  // Initialize actuator configuration
-  ActuatorConfig_t actuator_config = {
-      .extend_active_level = GPIO_PIN_SET,    
-      .shrink_active_level = GPIO_PIN_SET,    
-      .debounce_time_ms = MS_TO_TICKS(DEBOUNCE_TIME_MS),
-      
+  /* ---- Initialise actuator ---- */
+  const ActuatorConfig_t actuator_config = {
+      .extend_active_level = GPIO_PIN_SET,
+      .shrink_active_level = GPIO_PIN_SET,
+      .debounce_time_ms    = MS_TO_TICKS(DEBOUNCE_TIME_MS),
+
       .extend_control_port = GPIOB,
-      .extend_control_pin = EXTEND_CNTR_Pin,
+      .extend_control_pin  = EXTEND_CNTR_Pin,
       .shrink_control_port = GPIOB,
-      .shrink_control_pin = SHRINK_CNTR_Pin,
-      .extend_switch_port = GPIOB,
-      .extend_switch_pin = EXTEND_SWITCH_Pin,
-      .shrink_switch_port = GPIOB,
-      .shrink_switch_pin = SHRINK_SWITCH_Pin,
-      .led_extend_port = GPIOB,
-      .led_extend_pin = LED_EXTEND_Pin,
-      .led_shrink_port = GPIOB,
-      .led_shrink_pin = LED_SHRINK_Pin
+      .shrink_control_pin  = SHRINK_CNTR_Pin,
+      .extend_switch_port  = GPIOB,
+      .extend_switch_pin   = EXTEND_SWITCH_Pin,
+      .shrink_switch_port  = GPIOB,
+      .shrink_switch_pin   = SHRINK_SWITCH_Pin,
+      .led_extend_port     = GPIOB,
+      .led_extend_pin      = LED_EXTEND_Pin,
+      .led_shrink_port     = GPIOB,
+      .led_shrink_pin      = LED_SHRINK_Pin
   };
 
-  // Initialize actuator
-  actuator_init(&actuator_control, &actuator_config);
+  actuator_init(&s_actuator_control, &actuator_config);
+  actuator_start_homing(&s_actuator_control);
 
-  // Start homing
-  actuator_start_homing(&actuator_control);
+  s_last_update_tick = HAL_GetTick();
 
   /* USER CODE END 2 */
 
@@ -121,20 +121,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    uint32_t current_time = HAL_GetTick();
+    const uint32_t current_time = HAL_GetTick();
 
-    actuator_update(&actuator_control, current_time);
+    /* Run the state machine at LOOP_COOLDOWN_MS intervals */
+    if ((current_time - s_last_update_tick) >= LOOP_COOLDOWN_MS) {
+        s_last_update_tick = current_time;
 
-    if (actuator_get_state(&actuator_control) == ACTUATOR_IDLE && !actuator_is_homing(&actuator_control))
-    {
-      // ready
+        actuator_update(&s_actuator_control, current_time);
+
+        if (actuator_get_state(&s_actuator_control) == ACTUATOR_IDLE &&
+            !actuator_is_homing(&s_actuator_control))
+        {
+            /* Actuator is idle and homing is complete — ready for commands */
+        }
+        else if (actuator_is_error(&s_actuator_control))
+        {
+            /* An error has occurred (e.g. homing timeout) */
+        }
     }
-    else if (actuator_error(&actuator_control))
-    {
-      // error
-    }
 
-    HAL_Delay(5);
+    /* No blocking delay — the loop spins freely for maximum responsiveness */
 
     /* USER CODE END WHILE */
 
